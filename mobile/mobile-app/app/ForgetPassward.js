@@ -1,15 +1,16 @@
-// app/ForgetPassword.js
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
 import { auth } from "./firebase";
-import { fetchSignInMethodsForEmail, sendPasswordResetEmail } from "firebase/auth";
+import { sendPasswordResetEmail } from "firebase/auth";
 
 export default function ForgetPassword({ navigation }) {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
+  const [success, setSuccess] = useState(false);
 
   const handleReset = async () => {
     setMessage("");
+    setSuccess(false);
 
     if (!email) {
       setMessage("Please enter your email");
@@ -17,25 +18,18 @@ export default function ForgetPassword({ navigation }) {
     }
 
     try {
-      // تحقق من وجود الإيميل
-      const methods = await fetchSignInMethodsForEmail(auth, email);
+      await sendPasswordResetEmail(auth, email.trim());
 
-      if (methods.length === 0) {
-        setMessage("Email not found");
-        return;
-      }
+      setSuccess(true);
+      setMessage("Password reset email sent! Check your inbox (or spam).");
 
-      // إرسال رابط إعادة تعيين كلمة المرور
-      await sendPasswordResetEmail(auth, email);
-
-      Alert.alert(
-        "Success",
-        "Password reset email sent! Check your inbox (or spam).",
-        [{ text: "OK", onPress: () => navigation.navigate("Login") }]
-      );
     } catch (err) {
-      // أي خطأ من Firebase يظهر هنا
-      setMessage(err.message);
+      if (err.code === "auth/user-not-found") {
+        setMessage("Email not found");
+      } else {
+        setMessage(err.message);
+      }
+      setSuccess(false);
     }
   };
 
@@ -54,7 +48,11 @@ export default function ForgetPassword({ navigation }) {
           autoCapitalize="none"
         />
 
-        {message ? <Text style={styles.message}>{message}</Text> : null}
+        {message ? (
+          <Text style={[styles.message, success ? styles.success : styles.error]}>
+            {message}
+          </Text>
+        ) : null}
 
         <TouchableOpacity style={styles.button} onPress={handleReset}>
           <Text style={styles.buttonText}>Reset Password</Text>
@@ -80,5 +78,7 @@ const styles = StyleSheet.create({
   button: { backgroundColor: "#667eea", padding: 12, borderRadius: 8, marginTop: 10 },
   buttonText: { color: "#fff", textAlign: "center", fontWeight: "bold" },
   linkText: { color: "#667eea", textAlign: "center", textDecorationLine: "underline" },
-  message: { color: "red", textAlign: "center", marginBottom: 10 },
+  message: { textAlign: "center", marginBottom: 10 },
+  success: { color: "green" },
+  error: { color: "red" },
 });
